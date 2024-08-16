@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import os
 import re
+from pathlib import Path
 from typing import Iterable
 
+import joblib
 import pandas as pd
 
 from schema import COLUMNS
+
+MODEL_PATH = Path(os.getenv("MODEL_PATH", "Models/reg_model.pkl"))
 
 _EMPLOYMENT_ORDER = [
     "Employed, full-time",
@@ -17,6 +22,8 @@ _EMPLOYMENT_ORDER = [
     "Student, part-time",
     "Retired",
 ]
+
+_MODEL = None
 
 
 def _normalize(value: str) -> str:
@@ -30,6 +37,21 @@ def canonicalize_employment(selections: Iterable[str]) -> str:
     ordered = [x for x in _EMPLOYMENT_ORDER if x in selections]
     extras = sorted([x for x in selections if x not in _EMPLOYMENT_ORDER])
     return ";".join(ordered + extras)
+
+
+def get_model():
+    global _MODEL
+    if _MODEL is not None:
+        return _MODEL
+
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(
+            f"Model file not found at '{MODEL_PATH}'. "
+            f"Place reg_model.pkl there or set MODEL_PATH env var."
+        )
+
+    _MODEL = joblib.load(MODEL_PATH)
+    return _MODEL
 
 
 def preprocess_input(input_dict: dict) -> pd.DataFrame:
@@ -63,7 +85,7 @@ def preprocess_input(input_dict: dict) -> pd.DataFrame:
         if key in row:
             row[key] = 1
 
-    # EdLevel: model schema only has two buckets in this project
+    # EdLevel: schema only has two buckets here
     ed = input_dict.get("EdLevel")
     if ed:
         ed_norm = _normalize(ed)
@@ -72,7 +94,7 @@ def preprocess_input(input_dict: dict) -> pd.DataFrame:
         if ed_norm.startswith("Professional degree") and "EdLevel_Professional" in row:
             row["EdLevel_Professional"] = 1
 
-    # Employment: expects a single string with ';' exactly matching schema combos
+    # Employment (single string, already canonicalized in UI)
     employment = input_dict.get("Employment")
     if employment:
         key = f"Employment_{_normalize(employment)}"
@@ -80,3 +102,10 @@ def preprocess_input(input_dict: dict) -> pd.DataFrame:
             row[key] = 1
 
     return pd.DataFrame([row], columns=COLUMNS)
+
+
+def predict_salary(input_dict: dict) -> float:
+    model = get_model()
+    X = preprocess_input(input_dict)
+    pred = model.predict(X)[0]
+    return round(float(pred), 2)
