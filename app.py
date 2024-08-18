@@ -1,5 +1,7 @@
 import streamlit as st
 
+from utils import canonicalize_employment, predict_salary
+
 st.set_page_config(page_title="Developer Salary Predictor", layout="centered")
 
 st.title("Developer Salary Prediction App")
@@ -89,4 +91,22 @@ with st.form("prediction_form"):
     submitted = st.form_submit_button("Predict salary")
 
 if submitted:
-    st.info("Model wiring will be added in the next commits.")
+    employment_str = canonicalize_employment(employment)
+
+    user_input = {
+        "YearsCodePro": years_exp,
+        "Country": country,
+        "EdLevel": education,
+        "Employment": employment_str,
+        "RemoteWork": remote,
+        "OrgSize": org_size,
+    }
+
+    try:
+        salary = predict_salary(user_input)
+        st.success(f"Estimated Annual Salary: ${salary:,.2f} USD")
+    except FileNotFoundError as e:
+        st.error(str(e))
+        st.info("Tip: put the trained model at Models/reg_model.pkl or set MODEL_PATH.")
+    except Exception as e:
+        st.error(f"Prediction failed: {e}")
