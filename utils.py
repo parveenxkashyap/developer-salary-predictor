@@ -10,7 +10,7 @@ import pandas as pd
 
 from schema import COLUMNS
 
-MODEL_PATH = Path(os.getenv("MODEL_PATH", "Models/reg_model.pkl"))
+MODEL_PATH = Path(os.getenv("MODEL_PATH", "Notebooks/Models/reg_model.pkl"))
 
 _EMPLOYMENT_ORDER = [
     "Employed, full-time",
